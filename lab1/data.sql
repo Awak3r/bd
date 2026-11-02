@@ -5,7 +5,6 @@ INSERT INTO departments (id, name, short_name) VALUES
     (2, 'Кафедра 804 «Теория вероятностей и компьютерное моделирование»', '804'),
     (3, 'Кафедра 805 «Математическая кибернетика»', '805'),
     (4, 'Кафедра 806 «Вычислительная математика и программирование»', '806');
-(10, 'М8О-311БВ-24', 2024, 3);
 
 INSERT INTO student_groups (id, name, admission_year, course_number) VALUES
     (1, 'М8О-301БВ-24', 2024, 3),
@@ -17,7 +16,12 @@ INSERT INTO student_groups (id, name, admission_year, course_number) VALUES
     (7, 'М8О-308БВ-24', 2024, 3),
     (8, 'М8О-309БВ-24', 2024, 3),
     (9, 'М8О-310БВ-24', 2024, 3),
-    (10, 'М8О-311БВ-24', 2024, 3);
+    (10, 'М8О-311БВ-24', 2024, 3),
+    (11, 'М8О-312БВ-24', 2024, 3),
+    (12, 'М8О-313БВ-24', 2024, 3),
+    (13, 'М8О-314БВ-24', 2024, 3),
+    (14, 'М8О-315БВ-24', 2024, 3),
+    (15, 'М8О-316БВ-24', 2024, 3);
 
 INSERT INTO teachers (id, department_id, first_name, last_name, middle_name, email) VALUES
     (1, 1, 'Борис', 'Бардин', 'Сабирович', 'teacher01@test.mai.ru'),
@@ -125,7 +129,10 @@ INSERT INTO students (id, group_id, first_name, last_name, middle_name, email, b
     (47, 10, 'Варвара', 'Гусева', 'Алексеевна', 'student47@test.mai.ru', '2005-05-16'),
     (48, 10, 'Полина', 'Егорова', 'Дмитриевна', 'student48@test.mai.ru', '2005-07-29'),
     (49, 10, 'Кира', 'Сафонова', 'Игоревна', 'student49@test.mai.ru', '2005-09-23'),
-    (50, 10, 'Александра', 'Миронова', 'Сергеевна', 'student50@test.mai.ru', '2005-12-08');
+    (50, 10, 'Александра', 'Миронова', 'Сергеевна', 'student50@test.mai.ru', '2005-12-08'),
+
+    (52, 1, 'Пётр', 'Сидоров', 'Иванович', 'student52@test.mai.ru', '2005-03-15'),
+    (67, 2, 'Мария', 'Кузнецова', 'Олеговна', 'student67@test.mai.ru', '2005-08-21');
 
 INSERT INTO courses (id, discipline_id, group_id, teacher_id, semester, academic_year) VALUES
     (1, 16, 1, 18, 5, 2026),
