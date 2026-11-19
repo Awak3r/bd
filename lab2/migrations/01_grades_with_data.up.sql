@@ -1,28 +1,52 @@
--- Миграция 0002 (up): содержательный набор данных для ведомостей оценок.
---
--- Требования ТЗ ЛР2 (задание 1.1), покрытые этим набором:
---   * >= 30 записей в операционной таблице grades (здесь 91 запись);
---   * >= 3 состояний бизнес-процесса: assigned / passed / failed / annulled;
---   * данные за >= 3 календарных месяцев: сентябрь, октябрь, ноябрь 2026;
---   * повторяющиеся операции над одной сущностью: пересдачи
---     (attempt_number = 2, у студента 18 есть и третья попытка);
---   * сущности без связанных операций: студенты 52 и 67 (ведомости не
---     открывались), студенты групп 7-15 (31-50) — курсы ещё не назначены,
---     курсы 15 и 30 и все курсы 6-го семестра — ведомости не открыты;
---   * пограничные значения: оценки 2 и 5, NULL в grade_value/graded_on
---     там, где это допускает модель.
---
--- Оценки относятся только к курсам 5-го семестра 2026/27 учебного года
--- (осенний семестр): курсы 6-го семестра ещё не начались, поэтому
--- ведомости по ним отсутствуют — это содержательное отсутствие событий.
---
--- Идентификаторы начинаются с 100001, чтобы откат (down) мог удалить
--- ровно этот набор, не затронув данные демо-сценария DML (диапазон 200000+).
---
--- Файл совместим с golang-migrate, применим и вручную через psql -f.
+CREATE TABLE "grades" (
+  "id" bigint PRIMARY KEY,
+  "course_id" bigint NOT NULL,
+  "student_id" bigint NOT NULL,
+
+  "attempt_number" smallint NOT NULL
+    CONSTRAINT "chk_grades_attempt_positive" CHECK ("attempt_number" >= 1),
+
+  "status" varchar(20) NOT NULL
+    CONSTRAINT "chk_grades_status_allowed"
+    CHECK ("status" IN ('assigned', 'passed', 'failed', 'annulled')),
+
+  "grade_value" smallint
+    CONSTRAINT "chk_grades_grade_value" CHECK ("grade_value" BETWEEN 2 AND 5),
+
+  "assigned_on" date NOT NULL,
+  "graded_on" date,
+
+  CONSTRAINT "chk_grades_status_consistency" CHECK (
+    ((("status" = 'passed' AND "grade_value" BETWEEN 3 AND 5)
+       OR ("status" = 'failed' AND "grade_value" = 2))
+       AND "grade_value" IS NOT NULL
+       AND "graded_on" IS NOT NULL
+       AND "graded_on" >= "assigned_on")
+    OR
+    ("status" IN ('assigned', 'annulled')
+       AND "grade_value" IS NULL
+       AND "graded_on" IS NULL)
+  ),
+
+  CONSTRAINT "uq_grades_attempt" UNIQUE ("course_id", "student_id", "attempt_number")
+);
+
+ALTER TABLE "grades"
+  ADD CONSTRAINT "fk_grades_course"
+  FOREIGN KEY ("course_id") REFERENCES "courses" ("id")
+  ON DELETE RESTRICT;
+
+ALTER TABLE "grades"
+  ADD CONSTRAINT "fk_grades_student"
+  FOREIGN KEY ("student_id") REFERENCES "students" ("id")
+  ON DELETE CASCADE;
+
+CREATE INDEX "idx_grades_student" ON "grades" ("student_id");
+CREATE INDEX "idx_grades_course" ON "grades" ("course_id");
+
 
 INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_value, assigned_on, graded_on) VALUES
--- Группа 1 (М8О-301БВ-24): курсы 1 (Программирование), 2 (БД), 5 (Теория оптимизации)
+
 (100001, 1, 1, 1, 'passed',   5, '2026-09-05', '2026-09-20'),
 (100002, 2, 1, 1, 'failed',   2, '2026-09-05', '2026-10-03'),
 (100003, 2, 1, 2, 'passed',   4, '2026-10-06', '2026-10-20'),
@@ -41,7 +65,7 @@ INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_val
 (100016, 1, 5, 1, 'passed',   5, '2026-09-07', '2026-09-25'),
 (100017, 2, 5, 1, 'passed',   5, '2026-09-07', '2026-09-27'),
 (100018, 5, 5, 1, 'passed',   5, '2026-10-03', '2026-10-21'),
--- Группа 2 (М8О-303БВ-24): курсы 6 (Языки и методы), 7 (Матанализ), 10 (Численные методы)
+
 (100019, 6, 6, 1, 'passed',   4, '2026-09-08', '2026-09-26'),
 (100020, 7, 6, 1, 'failed',   2, '2026-09-09', '2026-10-06'),
 (100021, 7, 6, 2, 'passed',   3, '2026-10-09', '2026-10-30'),
@@ -60,7 +84,7 @@ INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_val
 (100034, 6, 10, 1, 'passed',  5, '2026-09-08', '2026-09-28'),
 (100035, 7, 10, 1, 'passed',  4, '2026-09-09', '2026-10-01'),
 (100036, 10, 10, 1, 'passed', 4, '2026-10-04', '2026-10-19'),
--- Группа 3 (М8О-304БВ-24): курсы 11 (Программирование), 12 (Теорвер); курс 15 — ведомости не открыты
+
 (100037, 11, 11, 1, 'passed',  4, '2026-09-09', '2026-09-30'),
 (100038, 12, 11, 1, 'failed',  2, '2026-09-10', '2026-10-09'),
 (100039, 12, 11, 2, 'passed',  3, '2026-10-11', '2026-11-02'),
@@ -72,7 +96,7 @@ INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_val
 (100045, 12, 14, 1, 'passed',  5, '2026-09-10', '2026-09-30'),
 (100046, 11, 15, 1, 'passed',  5, '2026-09-09', '2026-09-26'),
 (100047, 12, 15, 1, 'passed',  5, '2026-09-10', '2026-09-28'),
--- Группа 4 (М8О-305БВ-24): курсы 16 (Программирование), 17 (Стохастика), 20 (Численные методы)
+
 (100048, 16, 16, 1, 'passed',  5, '2026-09-10', '2026-09-29'),
 (100049, 17, 16, 1, 'failed',  2, '2026-09-11', '2026-10-08'),
 (100050, 17, 16, 2, 'passed',  3, '2026-10-10', '2026-10-31'),
@@ -90,7 +114,7 @@ INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_val
 (100062, 17, 19, 2, 'passed',  5, '2026-10-11', '2026-11-01'),
 (100063, 16, 20, 1, 'passed',  4, '2026-09-10', '2026-09-26'),
 (100064, 17, 20, 1, 'passed',  5, '2026-09-11', '2026-09-28'),
--- Группа 5 (М8О-306БВ-24): курсы 21 (Языки и методы), 22 (Матанализ), 25 (Матмоделирование)
+
 (100065, 21, 21, 1, 'passed',  4, '2026-09-11', '2026-09-30'),
 (100066, 22, 21, 1, 'passed',  4, '2026-09-12', '2026-10-01'),
 (100067, 25, 21, 1, 'assigned', NULL, '2026-11-09', NULL),
@@ -106,7 +130,7 @@ INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_val
 (100077, 22, 25, 1, 'passed',  3, '2026-09-12', '2026-09-29'),
 (100078, 25, 25, 1, 'failed',  2, '2026-10-07', '2026-11-05'),
 (100079, 25, 25, 2, 'passed',  3, '2026-11-07', '2026-11-26'),
--- Группа 6 (М8О-307БВ-24): курсы 26 (Программирование), 27 (Теорвер); курс 30 — ведомости не открыты
+
 (100080, 26, 26, 1, 'passed',  5, '2026-09-12', '2026-09-30'),
 (100081, 27, 26, 1, 'failed',  2, '2026-09-13', '2026-10-12'),
 (100082, 27, 26, 2, 'passed',  4, '2026-10-14', '2026-11-08'),
@@ -119,8 +143,3 @@ INSERT INTO grades (id, course_id, student_id, attempt_number, status, grade_val
 (100089, 26, 30, 1, 'passed',  5, '2026-09-12', '2026-09-28'),
 (100090, 27, 30, 1, 'failed',  2, '2026-09-13', '2026-10-16'),
 (100091, 27, 30, 2, 'passed',  3, '2026-10-18', '2026-11-12');
-
--- Проверка полноты набора: 91 запись, все 4 статуса, 3 месяца, пересдачи.
--- SELECT status, COUNT(*) FROM grades GROUP BY status;
--- SELECT to_char(graded_on, 'YYYY-MM') AS month, COUNT(*) FROM grades WHERE graded_on IS NOT NULL GROUP BY 1;
--- SELECT COUNT(*) FROM grades WHERE attempt_number >= 2;
