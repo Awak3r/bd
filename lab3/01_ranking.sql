@@ -5,10 +5,11 @@
 -- Требования задания и как они выполнены:
 --   * равные средние баллы занимают одно место       -> RANK()
 --   * студенты без оценок присутствуют в результате  -> LEFT JOIN, place IS NULL
---   * место считается только среди оценённых попыток -> NULLS LAST в окне
+--   * место считается среди студентов с оценками    -> NULLS LAST в окне
 --
 -- NULLS LAST в окне обязателен: в ORDER BY ... DESC значение NULL по умолчанию
 -- идёт первым и студенты без оценок сдвинули бы места остальных.
+-- Округление среднего влияет только на отображение, а не на место.
 
 WITH student_avg AS (
     SELECT s.id               AS student_id,
@@ -34,4 +35,4 @@ SELECT sg.name               AS group_name,
 FROM student_avg a
 JOIN students s        ON s.id = a.student_id
 JOIN student_groups sg ON sg.id = a.group_id
-ORDER BY sg.name, place NULLS LAST, s.last_name, s.first_name;
+ORDER BY sg.name, place NULLS LAST, s.last_name, s.first_name, s.id;

@@ -72,26 +72,29 @@ LEFT JOIN grades g
       AND g.grade_value IS NOT NULL
 GROUP BY s.id, s.last_name, s.first_name, sg.id, sg.name;
 
--- Использование представления: «двоечники» (средний ниже 3.5 при хотя бы двух
--- оценённых попытках) и их отклонение от среднего по своей группе.
+-- Среднее по группе — среднее личных баллов всех студентов с оценками.
+-- Считаем его до фильтрации, чтобы условия отчёта не меняли базу сравнения.
+WITH group_comparison AS (
+    SELECT v.*,
+           AVG(v.avg_grade) OVER (PARTITION BY v.group_id) AS group_avg
+    FROM v_student_avg_grade v
+)
 SELECT group_name,
        last_name,
        first_name,
        graded_attempts,
-       ROUND(avg_grade, 2) AS avg_grade,
-       ROUND(
-           avg_grade - AVG(avg_grade) OVER (PARTITION BY group_id),
-           2
-       )                   AS diff_from_group_avg
-FROM v_student_avg_grade
+       ROUND(gc.avg_grade, 2)             AS avg_grade,
+       ROUND(group_avg, 2)                AS group_avg,
+       ROUND(gc.avg_grade - group_avg, 2) AS diff_from_group_avg
+FROM group_comparison gc
 WHERE graded_attempts >= 2
-  AND avg_grade < 3.5
-ORDER BY group_name, avg_grade;
+  AND gc.avg_grade < 3.5
+ORDER BY group_name, gc.avg_grade, student_id;
 
 
 -- ---------------------------------------------------------------------------
 -- 2.3. Изменение данных через представление с WITH CHECK OPTION.
---      Представление — рабочий интерфейс курсов текущего учебного года:
+--      Представление — рабочий интерфейс курсов учебного года 2026:
 --      перевести курс в другой год через него нельзя.
 -- ---------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_current_courses;
@@ -111,11 +114,14 @@ SELECT id, semester, academic_year FROM v_current_courses WHERE id = 1;
 
 ROLLBACK;
 
--- Отклонённое изменение: строка вышла бы из условия отбора, поэтому
--- PostgreSQL возвращает
---   ERROR: new row violates check option for view "v_current_courses"
-BEGIN;
-
-UPDATE v_current_courses SET academic_year = 2025 WHERE id = 1;
-
-ROLLBACK;
+-- Ловим только ожидаемое нарушение WITH CHECK OPTION. Если UPDATE не
+-- отклонён, демонстрация должна завершиться ошибкой даже при отсутствии строки.
+DO $$
+BEGIN
+    UPDATE v_current_courses SET academic_year = 2025 WHERE id = 1;
+    RAISE EXCEPTION 'Ожидался отказ WITH CHECK OPTION при переносе курса 1 в 2025 год';
+EXCEPTION
+    WHEN with_check_option_violation THEN
+        RAISE NOTICE 'Ожидаемый отказ (SQLSTATE %): %', SQLSTATE, SQLERRM;
+END;
+$$;
