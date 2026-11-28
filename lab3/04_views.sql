@@ -1,12 +1,3 @@
--- ЛР3, часть 2. Обычные представления (VIEW).
---
--- Скрипт идемпотентен: представления пересоздаются через DROP VIEW IF EXISTS.
-
--- ---------------------------------------------------------------------------
--- 2.1. Операционное представление: единая ведомость.
---      Объединяет grades, students, student_groups, courses, disciplines,
---      teachers — одна строка = одна попытка сдачи с полным контекстом.
--- ---------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_gradebook;
 
 CREATE VIEW v_gradebook AS
@@ -29,7 +20,6 @@ JOIN courses c         ON c.id = g.course_id
 JOIN disciplines d     ON d.id = c.discipline_id
 JOIN teachers t        ON t.id = c.teacher_id;
 
--- Демонстрация: изменение исходных данных сразу видно через представление.
 BEGIN;
 
 SELECT grade_id, discipline, grade_value, status
@@ -44,17 +34,10 @@ WHERE grade_id = 100001;
 
 ROLLBACK;
 
--- После отката представление снова отдаёт исходное значение.
 SELECT grade_id, discipline, grade_value, status
 FROM v_gradebook
 WHERE grade_id = 100001;
 
-
--- ---------------------------------------------------------------------------
--- 2.2. Аналитическое представление на основе задания 1.1
---      (средний балл по студенту) и его использование в другом запросе
---      с дополнительной фильтрацией и вычислением отклонения от группы.
--- ---------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_student_avg_grade;
 
 CREATE VIEW v_student_avg_grade AS
@@ -72,8 +55,6 @@ LEFT JOIN grades g
       AND g.grade_value IS NOT NULL
 GROUP BY s.id, s.last_name, s.first_name, sg.id, sg.name;
 
--- Среднее по группе — среднее личных баллов всех студентов с оценками.
--- Считаем его до фильтрации, чтобы условия отчёта не меняли базу сравнения.
 WITH group_comparison AS (
     SELECT v.*,
            AVG(v.avg_grade) OVER (PARTITION BY v.group_id) AS group_avg
@@ -91,12 +72,6 @@ WHERE graded_attempts >= 2
   AND gc.avg_grade < 3.5
 ORDER BY group_name, gc.avg_grade, student_id;
 
-
--- ---------------------------------------------------------------------------
--- 2.3. Изменение данных через представление с WITH CHECK OPTION.
---      Представление — рабочий интерфейс курсов учебного года 2026:
---      перевести курс в другой год через него нельзя.
--- ---------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_current_courses;
 
 CREATE VIEW v_current_courses AS
@@ -105,7 +80,6 @@ FROM courses
 WHERE academic_year = 2026
 WITH CHECK OPTION;
 
--- Успешное изменение: строка остаётся в условии отбора.
 BEGIN;
 
 UPDATE v_current_courses SET semester = 6 WHERE id = 1;
@@ -114,8 +88,6 @@ SELECT id, semester, academic_year FROM v_current_courses WHERE id = 1;
 
 ROLLBACK;
 
--- Ловим только ожидаемое нарушение WITH CHECK OPTION. Если UPDATE не
--- отклонён, демонстрация должна завершиться ошибкой даже при отсутствии строки.
 DO $$
 BEGIN
     UPDATE v_current_courses SET academic_year = 2025 WHERE id = 1;
