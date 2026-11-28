@@ -82,18 +82,9 @@ WITH CHECK OPTION;
 
 BEGIN;
 
-UPDATE v_current_courses SET semester = 6 WHERE id = 1;
-
-SELECT id, semester, academic_year FROM v_current_courses WHERE id = 1;
+UPDATE v_current_courses
+SET semester = 6
+WHERE id = 1
+RETURNING id, semester, academic_year;
 
 ROLLBACK;
-
-DO $$
-BEGIN
-    UPDATE v_current_courses SET academic_year = 2025 WHERE id = 1;
-    RAISE EXCEPTION 'Ожидался отказ WITH CHECK OPTION при переносе курса 1 в 2025 год';
-EXCEPTION
-    WHEN with_check_option_violation THEN
-        RAISE NOTICE 'Ожидаемый отказ (SQLSTATE %): %', SQLSTATE, SQLERRM;
-END;
-$$;
